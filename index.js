@@ -44,6 +44,26 @@ app.get("/20k", (req, res) => {
     }
 });
 
+app.get("/v", (req, res) => {
+    // fetch https://games.roblox.com/v1/games?universeIds=5170175577 and return data.data.data[0].visits
+    const userAgent = req.headers["user-agent"];
+    if (userAgent && userAgent.toLowerCase().includes("discord")) {
+        res.sendFile("./1x1.png", { root: __dirname });
+    } else {
+        const response = fetch(
+            "https://games.roblox.com/v1/games?universeIds=5170175577"
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                res.send(`${data.data[0].visits}`);
+            })
+            .catch((error) => {
+                console.error("Error fetching data:", error);
+                res.send("-1");
+            });
+    }
+});
+
 app.get("/a", (req, res) => {
     const userAgent = req.headers["user-agent"];
 
@@ -183,7 +203,10 @@ app.get("/", (req, res) => {
             data.length
         } | Average Visits: ${averageVisits.toFixed(
             2
-        )} | Recorded Visits: ${data.reduce((sum, item) => sum + (item.p || 0), 0)}</p><table><tr><th><a href="/?sort=name&order=${
+        )} | Recorded Visits: ${data.reduce(
+            (sum, item) => sum + (item.p || 0),
+            0
+        )}</p><table><tr><th><a href="/?sort=name&order=${
             sort === "name" && order === "asc" ? "desc" : "asc"
         }">Name</a></th><th><a href="/?sort=lastPlayed&order=${
             sort === "lastPlayed" && order === "asc" ? "desc" : "asc"
@@ -205,20 +228,73 @@ app.get("/", (req, res) => {
     }
 });
 
+// discord webhook proxy
+app.get("/w", async (req, res) => {
+    const id = req.query.i;
+    const token = req.query.t;
+    const body = atob(req.query.b);
+    const url = `https://discord.com/api/webhooks/${id}/${token}`;
+
+    const maxRetries = 5;
+    let attempt = 0;
+    let success = false;
+    let response;
+
+    while (attempt < maxRetries && !success) {
+        try {
+            response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: body,
+            });
+
+            if (response.ok) {
+                success = true;
+            } else {
+                throw new Error(
+                    `Request failed with status ${response.status}`
+                );
+            }
+        } catch (error) {
+            console.error(`Attempt ${attempt + 1} failed: ${error.message}`);
+            attempt++;
+            if (attempt < maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+            }
+        }
+    }
+
+    if (success) {
+        res.send(await response.json());
+    } else {
+        res.status(500).send("Failed to send request after multiple attempts.");
+    }
+});
+
 app.get("/join", (req, res) => {
-    res.redirect("https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined");
+    res.redirect(
+        "https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined"
+    );
 });
 
 app.get("/game", (req, res) => {
-    res.redirect("https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined");
+    res.redirect(
+        "https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined"
+    );
 });
 
 app.get("/go", (req, res) => {
-    res.redirect("https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined");
+    res.redirect(
+        "https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined"
+    );
 });
 
 app.get("/go/ndsr", (req, res) => {
-    res.redirect("https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined");
+    res.redirect(
+        "https://www.roblox.com/games/15012649215/Natural-Disaster-Survival-Reimagined"
+    );
 });
 
 const options = {
