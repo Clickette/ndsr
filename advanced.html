@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>
+            Natural Disaster Survival: Reimagined - Advanced Statistics
+        </title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f0f0f0;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            h1,
+            h2 {
+                color: #333;
+            }
+            .chart-container {
+                margin-bottom: 30px;
+                height: 400px;
+            }
+            .controls {
+                margin-bottom: 20px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .controls > div {
+                margin-right: 20px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th,
+            td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+            th {
+                background-color: #f2f2f2;
+            }
+            tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            #pagination {
+                margin-top: 20px;
+                text-align: center;
+            }
+            #pagination button {
+                margin: 0 5px;
+            }
+            input,
+            select {
+                margin: 5px 0;
+                padding: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Natural Disaster Survival: Reimagined - Advanced Statistics</h1>
+            <p id="summary"></p>
+
+            <div class="controls">
+                <div>
+                    <label for="dataView">Data View: </label>
+                    <select id="dataView">
+                        <option value="weekdayPopularity">
+                            Weekday Popularity
+                        </option>
+                        <option value="hourlyActivity">Hourly Activity</option>
+                        <option value="playerVisits">Top 100 Players</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="playerSearch">Search Player: </label>
+                    <input
+                        type="text"
+                        id="playerSearch"
+                        placeholder="Enter player name"
+                    />
+                </div>
+                <div>
+                    <label for="startDate">Start Date: </label>
+                    <input type="date" id="startDate" />
+                    <label for="endDate">End Date: </label>
+                    <input type="date" id="endDate" />
+                </div>
+                <button id="applyFilters">Apply Filters</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="mainChart"></canvas>
+            </div>
+
+            <h2>Player Data</h2>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Last Played</th>
+                        <th>Visits</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div id="pagination"></div>
+        </div>
+
+        <script>
+            async function fetchData() {
+                const response = await fetch("../g");
+                const data = await response.json();
+                return data.map((player) => ({
+                    name: player.n,
+                    lastPlayed: new Date(player.l),
+                    visits: player.p,
+                    visitsPerDay: {}, // You may need to adapt this if daily visit data is available.
+                }));
+            }
+
+            let fullData = [];
+            let filteredData = [];
+            let currentView = "weekdayPopularity";
+
+            const updateSummary = (data) => {
+                const totalVisits = data.reduce(
+                    (sum, player) => sum + player.visits,
+                    0
+                );
+                const averageVisits = totalVisits / data.length;
+                document.getElementById("summary").textContent = `Players: ${
+                    data.length
+                } | Average Visits: ${averageVisits.toFixed(
+                    2
+                )} | Total Visits: ${totalVisits}`;
+            };
+
+            const updateTable = (data, page = 1, pageSize = 20) => {
+                const tbody = document
+                    .getElementById("dataTable")
+                    .getElementsByTagName("tbody")[0];
+                tbody.innerHTML = "";
+                const start = (page - 1) * pageSize;
+                const end = start + pageSize;
+                const pageData = data.slice(start, end);
+
+                pageData.forEach((player) => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = player.name;
+                    row.insertCell(1).textContent = moment(
+                        player.lastPlayed
+                    ).isValid()
+                        ? moment(player.lastPlayed).format(
+                              "YYYY-MM-DD HH:mm:ss"
+                          )
+                        : "Invalid Date";
+                    row.insertCell(2).textContent = player.visits || "N/A";
+                });
+
+                updatePagination(data.length, page, pageSize);
+            };
+
+            const updatePagination = (totalItems, currentPage, pageSize) => {
+                const paginationElement = document.getElementById("pagination");
+                const totalPages = Math.ceil(totalItems / pageSize);
+                paginationElement.innerHTML = "";
+
+                const createButton = (text, page, disabled = false) => {
+                    const button = document.createElement("button");
+                    button.textContent = text;
+                    button.onclick = () =>
+                        updateTable(filteredData, page, pageSize);
+                    if (disabled) button.disabled = true;
+                    return button;
+                };
+
+                paginationElement.appendChild(
+                    createButton("Previous", currentPage - 1, currentPage === 1)
+                );
+
+                if (currentPage >= 4) {
+                    paginationElement.appendChild(createButton(1, 1));
+                    paginationElement.appendChild(
+                        document.createTextNode("...")
+                    );
+                }
+
+                let startPage = Math.max(1, currentPage - 2);
+                let endPage = Math.min(totalPages, currentPage + 2);
+
+                if (currentPage <= 3) {
+                    endPage = Math.min(5, totalPages);
+                } else if (currentPage > totalPages - 3) {
+                    startPage = Math.max(1, totalPages - 4);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    paginationElement.appendChild(
+                        createButton(i, i, i === currentPage)
+                    );
+                }
+
+                if (endPage < totalPages) {
+                    paginationElement.appendChild(
+                        document.createTextNode("...")
+                    );
+                    paginationElement.appendChild(
+                        createButton(totalPages, totalPages)
+                    );
+                }
+
+                paginationElement.appendChild(
+                    createButton(
+                        "Next",
+                        currentPage + 1,
+                        currentPage === totalPages
+                    )
+                );
+            };
+            let mainChart;
+
+            const updateChart = (data, view) => {
+                const ctx = document
+                    .getElementById("mainChart")
+                    .getContext("2d");
+
+                if (mainChart) {
+                    mainChart.destroy();
+                }
+
+                let chartData;
+                let chartOptions;
+
+                switch (view) {
+                    case "weekdayPopularity":
+                        chartData = getWeekdayPopularityData(data);
+                        chartOptions = {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: "Weekday Popularity",
+                                },
+                            },
+                        };
+                        break;
+                    case "hourlyActivity":
+                        chartData = getHourlyActivityData(data);
+                        chartOptions = {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: "Hourly Activity",
+                                },
+                            },
+                        };
+                        break;
+                    case "playerVisits":
+                        chartData = getPlayerVisitsData(data);
+                        chartOptions = {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: "Top 50 Players by Visits",
+                                },
+                            },
+                        };
+                        break;
+                }
+
+                mainChart = new Chart(ctx, {
+                    type: "bar",
+                    data: chartData,
+                    options: chartOptions,
+                });
+            };
+
+            const getWeekdayPopularityData = (data) => {
+                const weekdayVisits = {
+                    0: 0,
+                    1: 0,
+                    2: 0,
+                    3: 0,
+                    4: 0,
+                    5: 0,
+                    6: 0,
+                };
+                data.forEach((player) => {
+                    if (
+                        moment(player.lastPlayed).isValid() &&
+                        player.visits > 0
+                    ) {
+                        const lastPlayedDay = new Date(
+                            player.lastPlayed
+                        ).getDay();
+                        weekdayVisits[lastPlayedDay] += player.visits;
+                    }
+                });
+                return {
+                    labels: [
+                        "Sunday",
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday",
+                    ],
+                    datasets: [
+                        {
+                            label: "Visits by Day of Week",
+                            data: Object.values(weekdayVisits),
+                            backgroundColor: "rgba(255, 99, 132, 0.6)",
+                        },
+                    ],
+                };
+            };
+
+            const getHourlyActivityData = (data) => {
+                const hourlyVisits = Array(24).fill(0);
+                data.forEach((player) => {
+                    if (
+                        moment(player.lastPlayed).isValid() &&
+                        player.visits > 0
+                    ) {
+                        const hour = new Date(player.lastPlayed).getHours();
+                        hourlyVisits[hour]++;
+                    }
+                });
+                return {
+                    labels: Array.from({ length: 24 }, (_, i) => i),
+                    datasets: [
+                        {
+                            label: "Player Activity by Hour",
+                            data: hourlyVisits,
+                            backgroundColor: "rgba(54, 162, 235, 0.6)",
+                        },
+                    ],
+                };
+            };
+
+            const getPlayerVisitsData = (data) => {
+                const validPlayers = data.filter(
+                    (player) =>
+                        moment(player.lastPlayed).isValid() && player.visits > 0
+                );
+                const sortedPlayers = validPlayers
+                    .sort((a, b) => b.visits - a.visits)
+                    .slice(0, 50);
+                return {
+                    labels: sortedPlayers.map((player) => player.name),
+                    datasets: [
+                        {
+                            label: "Visits per Player",
+                            data: sortedPlayers.map((player) => player.visits),
+                            backgroundColor: "rgba(255, 206, 86, 0.6)",
+                        },
+                    ],
+                };
+            };
+
+            const applyFilters = () => {
+                const playerName = document
+                    .getElementById("playerSearch")
+                    .value.toLowerCase();
+                const startDate = document.getElementById("startDate").value;
+                const endDate = document.getElementById("endDate").value;
+
+                filteredData = fullData.filter((player) => {
+                    const nameMatch = player.name
+                        .toLowerCase()
+                        .includes(playerName);
+                    const dateMatch =
+                        (!startDate ||
+                            moment(player.lastPlayed).isSameOrAfter(
+                                startDate
+                            )) &&
+                        (!endDate ||
+                            moment(player.lastPlayed).isSameOrBefore(endDate));
+                    return (
+                        nameMatch &&
+                        dateMatch &&
+                        moment(player.lastPlayed).isValid() &&
+                        player.visits > 0
+                    );
+                });
+
+                updateView();
+            };
+
+            const updateView = () => {
+                currentView = document.getElementById("dataView").value;
+                updateSummary(filteredData);
+                updateChart(filteredData, currentView);
+                updateTable(filteredData);
+            };
+
+            fetchData().then((data) => {
+                fullData = data.filter(
+                    (player) =>
+                        moment(player.lastPlayed).isValid() && player.visits > 0
+                );
+                filteredData = fullData;
+                updateView();
+            });
+
+            document
+                .getElementById("dataView")
+                .addEventListener("change", updateView);
+            document
+                .getElementById("applyFilters")
+                .addEventListener("click", applyFilters);
+        </script>
+    </body>
+</html>

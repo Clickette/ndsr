@@ -8,8 +8,6 @@ This repository does not include `key.pem`, `cert.crt`, `20k.json` or `data.json
 
 ---
 
-Play the game here: https://ndsr.clickette.net/game
-
-See the data here: https://ndsr.clickette.net
+Play the game here: https://clickette.net/go/ndsr
 
 ###### Natural Disaster Survival: Reimagined is not open source; however, the backend is.

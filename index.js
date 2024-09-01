@@ -206,7 +206,7 @@ app.get("/", (req, res) => {
         )} | Recorded Visits: ${data.reduce(
             (sum, item) => sum + (item.p || 0),
             0
-        )}</p><table><tr><th><a href="/?sort=name&order=${
+        )}</p><a href="advanced"><button style="font-size:larger"><b>Try Advanced mode</b></button><br><br></a><table><tr><th><a href="/?sort=name&order=${
             sort === "name" && order === "asc" ? "desc" : "asc"
         }">Name</a></th><th><a href="/?sort=lastPlayed&order=${
             sort === "lastPlayed" && order === "asc" ? "desc" : "asc"
@@ -225,6 +225,18 @@ app.get("/", (req, res) => {
 
         res.set("Cache-Control", "no-store");
         res.send(html);
+    }
+});
+
+app.get("/advanced", (req, res) => {
+    const userAgent = req.headers["user-agent"];
+    const sort = req.query.sort;
+    const order = req.query.order;
+
+    if (userAgent && userAgent.toLowerCase().includes("discord")) {
+        res.sendFile("./1x1.png", { root: __dirname });
+    } else {
+        res.sendFile("./advanced.html", { root: __dirname });
     }
 });
 
